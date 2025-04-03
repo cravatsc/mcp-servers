@@ -3,7 +3,7 @@ import {
   ResourceTemplate,
 } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
-import express, { Request, Response } from 'express'
+import express, { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import cors from 'cors'
 
@@ -45,46 +45,42 @@ const app = express()
 // Enable CORS for all routes
 app.use(cors())
 
-// to support multiple simultaneous connections we have a lookup object from
-// sessionId to transport
-const transports: { [sessionId: string]: SSEServerTransport } = {}
+// Authorization middleware
+const checkAuth = (req: Request, res: Response, next: NextFunction) => {
+  console.log('we are in the auth')
+  const authHeader = req.headers.authorization
+  console.dir(req.headers)
 
-// Health check endpoint
+  if (!authHeader || authHeader !== 'Bearer valid-token') {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  next()
+}
+
+// Health check endpoint (no auth required)
 app.get('/health', (_: Request, res: Response) => {
   res.json({ status: 'ok', name: 'Demo', version: '1.0.0' })
 })
 
+// to support multiple simultaneous connections we have a lookup object from
+// sessionId to transport
+const transports: { [sessionId: string]: SSEServerTransport } = {}
+
 app.get('/sse', async (_: Request, res: Response) => {
-  // Set headers for SSE
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
-  res.setHeader('Connection', 'keep-alive')
-
-  try {
-    const transport = new SSEServerTransport('/messages', res)
-    transports[transport.sessionId] = transport
-
-    res.on('close', () => {
-      delete transports[transport.sessionId]
-    })
-
-    await server.connect(transport)
-  } catch (error) {
-    console.error('Error in SSE connection:', error)
-    res.status(500).end()
-  }
+  const transport = new SSEServerTransport('/messages', res)
+  transports[transport.sessionId] = transport
+  res.on('close', () => {
+    delete transports[transport.sessionId]
+  })
+  await server.connect(transport)
 })
 
 app.post('/messages', async (req: Request, res: Response) => {
   const sessionId = req.query.sessionId as string
   const transport = transports[sessionId]
   if (transport) {
-    try {
-      await transport.handlePostMessage(req, res)
-    } catch (error) {
-      console.error('Error handling message:', error)
-      res.status(500).json({ error: 'Internal server error' })
-    }
+    await transport.handlePostMessage(req, res)
   } else {
     res.status(400).send('No transport found for sessionId')
   }
@@ -98,35 +94,3 @@ app.listen(port, () => {
   console.log('- GET  /sse     - SSE connection')
   console.log('- POST /messages - Message handling')
 })
-
-// to support multiple simultaneous connections we have a lookup object from
-// sessionId to transport
-// const transports: { [sessionId: string]: SSEServerTransport } = {}
-
-// app.get('/sse', async (_: Request, res: Response) => {
-//   const transport = new SSEServerTransport('/messages', res)
-//   transports[transport.sessionId] = transport
-//   res.on('close', () => {
-//     delete transports[transport.sessionId]
-//   })
-//   await server.connect(transport)
-// })
-
-// app.post('/messages', async (req: Request, res: Response) => {
-//   const sessionId = req.query.sessionId as string
-//   const transport = transports[sessionId]
-//   if (transport) {
-//     await transport.handlePostMessage(req, res)
-//   } else {
-//     res.status(400).send('No transport found for sessionId')
-//   }
-// })
-
-// const port = 3000
-// app.listen(port, () => {
-//   console.log(`MCP Server running on http://localhost:${port}`)
-//   console.log('Available endpoints:')
-//   console.log('- GET  /health  - Health check')
-//   console.log('- GET  /sse     - SSE connection')
-//   console.log('- POST /messages - Message handling')
-// })
