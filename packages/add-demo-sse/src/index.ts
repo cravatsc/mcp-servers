@@ -9,20 +9,49 @@ import cors from 'cors'
 
 //create mcp server
 const server = new McpServer({
-  name: 'Demo',
+  name: 'Demo sse',
   version: '1.0.0',
 })
 
 //add a tool
 // Tools let LLMs take actions through your server. Unlike resources, tools are expected to perform computation and have side effects:
-server.tool('add', { a: z.number(), b: z.number() }, async ({ a, b }) => ({
-  content: [
-    {
-      type: 'text',
-      text: String(a + b),
-    },
-  ],
-}))
+server.tool(
+  'add',
+  `Tool: Add Two Numbers
+
+Description:
+This tool performs simple addition of two numerical values. It takes two numbers as input and returns their sum. This can be useful for basic arithmetic operations within more complex workflows or calculations.
+
+Usage:
+- Input two numbers you want to add together.
+- The tool will return the sum of these numbers.
+
+Examples:
+1. Adding integers: 5 + 3 = 8
+2. Adding decimals: 2.5 + 1.7 = 4.2
+3. Adding negative numbers: -4 + 7 = 3
+
+Note: This tool only performs addition. For other arithmetic operations like subtraction, multiplication, or division, you would need to use or create separate tools.
+
+Parameters:
+- a (number): The first number to add
+- b (number): The second number to add
+
+Returns:
+- The sum of 'a' and 'b' as a number`,
+  { a: z.number(), b: z.number() },
+  async ({ a, b }) => {
+    console.log('we are using the add tool')
+    return {
+      content: [
+        {
+          type: 'text',
+          text: String(a + b),
+        },
+      ],
+    }
+  }
+)
 
 //add a dynamic greeting resource
 // Resources are how you expose data to LLMs. They're similar to GET endpoints in a REST API -
@@ -49,6 +78,7 @@ app.use(cors())
 const checkAuth = (req: Request, res: Response, next: NextFunction) => {
   console.log('we are in the auth')
   const authHeader = req.headers.authorization
+  console.dir(req.url)
   console.dir(req.headers)
 
   if (!authHeader || authHeader !== 'Bearer valid-token') {
@@ -69,6 +99,7 @@ const transports: { [sessionId: string]: SSEServerTransport } = {}
 
 app.get('/sse', async (_: Request, res: Response) => {
   const transport = new SSEServerTransport('/messages', res)
+  console.log('someone is connecting...')
   transports[transport.sessionId] = transport
   res.on('close', () => {
     delete transports[transport.sessionId]

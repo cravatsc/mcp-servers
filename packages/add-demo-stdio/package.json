@@ -1,5 +1,5 @@
 {
-  "name": "@mcp-servers/add-demo",
+  "name": "@mcp-servers/add-demo-stdio",
   "version": "1.0.0",
   "main": "dist/index.js",
   "type": "module",

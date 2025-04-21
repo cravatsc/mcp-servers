@@ -19,7 +19,7 @@ WORKDIR /app
 COPY . .
 
 # Copy package files
-RUN turbo prune --scope=@mcp-servers/add-demo --docker 
+RUN turbo prune --scope=@mcp-servers/add-demo-sse --docker 
 
 FROM base AS installer
 
@@ -33,7 +33,7 @@ RUN pnpm install --frozen-lockfile
 # Build the project
 COPY --from=builder /app/out/full/ .
 COPY tsconfig.json ./tsconfig.json
-RUN pnpm turbo run build --filter=@mcp-servers/add-demo...
+RUN pnpm turbo run build --filter=@mcp-servers/add-demo-sse...
 
 FROM base AS runner
 
@@ -45,13 +45,13 @@ RUN adduser --system --uid 1001 nextjs
 USER nextjs
 
 # Copy the built application and all its dependencies
-COPY --from=installer --chown=nextjs:nodejs /app/packages/add-demo/dist ./packages/add-demo/dist
-COPY --from=installer --chown=nextjs:nodejs /app/packages/add-demo/package.json ./packages/add-demo/package.json
+COPY --from=installer --chown=nextjs:nodejs /app/packages/add-demo-sse/dist ./packages/add-demo-sse/dist
+COPY --from=installer --chown=nextjs:nodejs /app/packages/add-demo-sse/package.json ./packages/add-demo-sse/package.json
 COPY --from=installer --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=installer --chown=nextjs:nodejs /app/packages ./packages
 
 # Set up the correct working directory and environment
-WORKDIR /app/packages/add-demo
+WORKDIR /app/packages/add-demo-sse
 ENV NODE_PATH=/app/node_modules
 
 # Set the entry point
