@@ -23,8 +23,10 @@ app.post('/mcp', async (request: Request, response: Response) => {
 
   if (sessionId && transports[sessionId]) {
     //reuse existing transport
+    console.log('reusing session: ', sessionId)
     transport = transports[sessionId]
   } else if (!sessionId && isInitializeRequest(request.body)) {
+    console.log('creating a new session')
     //if session doesnt exist and request is valid, create new session
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
@@ -107,6 +109,7 @@ app.post('/mcp', async (request: Request, response: Response) => {
 const handleSessionRequest = async (request: Request, response: Response) => {
   //check for sesison id
   const sessionId = request.headers['mcp-session-id'] as string | undefined
+  console.log('handling sesison request for sessionId: ', sessionId)
   if (!sessionId || !transports[sessionId]) {
     response.status(400).send('Invalid or missing session ID')
     return
@@ -135,12 +138,6 @@ const server = app.listen(port, () => {
   console.log('- POST /mcp    - Client-to-server communication')
   console.log('- GET  /mcp    - Server-to-client notifications (SSE)')
   console.log('- DELETE /mcp  - Session termination')
-})
-
-// Middleware to log when endpoints are hit
-app.use((req, _, next) => {
-  console.log(`Endpoint hit: ${req.method} ${req.path}`)
-  next()
 })
 
 // Graceful shutdown function
