@@ -118,10 +118,38 @@ app.post('/messages', async (req: Request, res: Response) => {
 })
 
 const port = 3000
-app.listen(port, () => {
+const httpServer = app.listen(port, () => {
   console.log(`MCP Server running on http://localhost:${port}`)
   console.log('Available endpoints:')
   console.log('- GET  /health  - Health check')
   console.log('- GET  /sse     - SSE connection')
   console.log('- POST /messages - Message handling')
 })
+
+// Graceful shutdown function
+const gracefulShutdown = () => {
+  console.log('Received kill signal, shutting down gracefully')
+  httpServer.close(() => {
+    console.log('Closed out remaining connections')
+    // Clean up active transports
+    Object.values(transports).forEach((transport) => {
+      if (transport.close) {
+        transport.close()
+      }
+    })
+    console.log('Cleaned up transports')
+    process.exit(0)
+  })
+
+  // If server hasn't finished in 10s, shut down forcefully
+  setTimeout(() => {
+    console.error(
+      'Could not close connections in time, forcefully shutting down'
+    )
+    process.exit(1)
+  }, 10000)
+}
+
+// Listen for shutdown signals
+process.on('SIGTERM', gracefulShutdown)
+process.on('SIGINT', gracefulShutdown)
